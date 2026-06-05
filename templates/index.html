@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>曦曦饮食助手</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+body{font-family:'Microsoft YaHei',Arial,sans-serif;background:linear-gradient(135deg,#f5f7fa 0%,#c3cfe2 100%);margin:0;}
+.header{text-align:center;padding:20px;background:#d1f0ff;}
+.container{max-width:900px;width:90%;margin:20px auto;background:#fff;border-radius:18px;padding:30px;box-shadow:0 5px 15px rgba(0,0,0,.1);}
+.page{display:none;}
+.page.active{display:block;}
+.option{display:block;margin:12px 0;padding:12px;border:1px solid #ddd;border-radius:12px;cursor:pointer;}
+input[type=text]{width:100%;padding:12px;border-radius:10px;border:1px solid #ddd;}
+button{margin-top:20px;padding:10px 20px;border:none;border-radius:12px;background:#8fd3ff;color:white;cursor:pointer;}
+.result-box{background:#fafafa;padding:15px;border-radius:12px;}
+.thinking-box{
+    font: size 18px;
+    color:#ff6b9d;
+    text-align:center;
+    padding:20px;
+    animation:dots 1.2s infinite;
+}
+@keyframes dots{
+    0%{content:'';}
+    50%{content:'.';}
+    100%{content:'...';}
+}
+
+</style>
+</head>
+<body>
+<div class="header">
+<h1>🐱曦曦饮食助手🍱</h1>
+</div>
+
+<div class="container">
+
+<div id="page0" class="page active">
+<h2>欢迎使用曦曦饮食助手</h2>
+<p>点击开始进入饮食偏好采集。</p>
+<button onclick="nextPage(1)">开始</button>
+</div>
+
+<div id="page1" class="page">
+<h2>请问您的偏好口味是？</h2>
+<label class="option"><input type="radio" name="taste" value="清淡"> 清淡</label>
+<label class="option"><input type="radio" name="taste" value="麻辣"> 麻辣</label>
+<label class="option"><input type="radio" name="taste" value="适中"> 适中</label>
+<button onclick="nextPage(2)">下一步</button>
+</div>
+
+<div id="page2" class="page">
+<h2>请问您有忌口吗？</h2>
+<input type="text" id="avoid" placeholder="请输入忌口内容">
+<button onclick="nextPage(3)">下一步</button>
+</div>
+
+<div id="page3" class="page">
+<h2>请问您有过敏原吗？</h2>
+<input type="text" id="allergy" placeholder="请输入过敏原">
+<button onclick="nextPage(4)">下一步</button>
+</div>
+
+<div id="page4" class="page">
+<h2>请问您有什么健康目标吗？</h2>
+<label class="option"><input type="radio" name="goal" value="减肥"> 减肥</label>
+<label class="option"><input type="radio" name="goal" value="增肌"> 增肌</label>
+<label class="option"><input type="radio" name="goal" value="养身"> 养身</label>
+<button onclick="generateRecipe()">生成食谱</button>
+</div>
+
+<div id="page5" class="page">
+<h2>🍽️ 食谱推荐</h2>
+
+<!-- ⭐ 思考动画区域（新增） -->
+    <div id="recipeThinking" style="display:none;">
+        <div class="thinking-box">
+           <!-- <div class="cat-animation"></div-->
+            <div id="thinkingText">🐱 曦曦正在思考今日专属食谱...</div>
+        </div>
+    </div>
+
+<div id="recipeResult" class="result-box"></div>
+<button onclick="goNutrition()">下一步</button>
+</div>
+
+<div id="page6" class="page">
+<h2>🥗 营养分析</h2>
+<div id="nutritionResult" class="result-box"></div>
+</div>
+
+</div>
+
+<script>
+let recipeText='';
+let nutritionText='';
+
+function nextPage(n){
+ document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+ document.getElementById('page'+n).classList.add('active');
+}
+
+async function generateRecipe(){
+ const taste=document.querySelector('input[name="taste"]:checked')?.value||'';
+ const avoid=document.getElementById('avoid').value||'无';
+ const allergy=document.getElementById('allergy').value||'无';
+ const goal=document.querySelector('input[name="goal"]:checked')?.value||'';
+
+ const prompt=`偏好口味:${taste}；忌口:${avoid}；过敏原:${allergy}；健康目标:${goal}。请先生成食谱推荐，并单独给出营养分析。`;
+
+ document.getElementById('recipeResult').innerHTML='🐱 曦曦正在思考食谱...';
+
+ try{
+   const response=await fetch('/api/chat',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({message:prompt})
+   });
+
+   const data=await response.json();
+
+   const txt=data.response || '';
+   const parts=txt.split(/营养分析[:：]/);
+
+   recipeText=parts[0] || txt;
+   nutritionText=parts.length>1 ? ('营养分析：'+parts[1]) : '未检测到独立营养分析内容，请根据后端返回格式调整切分规则。';
+
+   document.getElementById('recipeResult').innerHTML=marked.parse(recipeText);
+   document.getElementById('nutritionResult').innerHTML=marked.parse(nutritionText);
+
+   nextPage(5);
+ }catch(e){
+   document.getElementById('recipeResult').innerHTML='生成失败';
+   nextPage(5);
+ }
+}
+
+async function loadNutrition(){
+
+    try{
+
+        const response = await fetch(
+            '/api/nutrition',
+            {
+                method:'POST'
+            }
+        );
+
+        const data = await response.json();
+
+        document.getElementById(
+            'nutritionResult'
+        ).innerHTML =
+            marked.parse(
+                data.nutrition || '暂无数据'
+            );
+
+    }catch(e){
+
+        document.getElementById(
+            'nutritionResult'
+        ).innerHTML =
+            '营养分析生成失败';
+
+    }
+}
+async function goNutrition(){
+
+    nextPage(6);
+
+    document.getElementById(
+        'nutritionResult'
+    ).innerHTML =
+        '🐱 曦曦正在分析营养成分...';
+
+    await loadNutrition();
+}
+</script>
+</body>
+</html>
