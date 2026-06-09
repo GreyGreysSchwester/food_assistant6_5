@@ -6,15 +6,99 @@
 <title>曦曦饮食助手</title>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <style>
-body{font-family:'Microsoft YaHei',Arial,sans-serif;background:linear-gradient(135deg,#f5f7fa 0%,#c3cfe2 100%);margin:0;}
-.header{text-align:center;padding:20px;background:#d1f0ff;}
-.container{max-width:900px;width:90%;margin:20px auto;background:#fff;border-radius:18px;padding:30px;box-shadow:0 5px 15px rgba(0,0,0,.1);}
-.page{display:none;}
-.page.active{display:block;}
-.option{display:block;margin:12px 0;padding:12px;border:1px solid #ddd;border-radius:12px;cursor:pointer;}
-input[type=text]{width:100%;padding:12px;border-radius:10px;border:1px solid #ddd;}
-button{margin-top:20px;padding:10px 20px;border:none;border-radius:12px;background:#8fd3ff;color:white;cursor:pointer;}
-.result-box{background:#fafafa;padding:15px;border-radius:12px;}
+body{
+    position: relative;
+    min-height: 97vh;
+    overflow-x: hidden;
+    font-family:'Microsoft YaHei',Arial,sans-serif;
+
+}
+body::before{
+    content:'';
+    position: absolute;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    background-image:url('/static/catcook.png');
+    background-size:cover;
+    background-position:center;
+    opacity:0.5;
+    z-index:-1;
+    pointer-events:none;
+}
+
+.header{
+    text-align:center;
+    padding:20px;
+    background:#fff1d16e;
+}
+
+.container{
+    flex:1;
+    width:70%;
+    max-width:none;
+
+    height: 100%;
+
+    margin:10px auto;
+
+    background:#ffffffd9;
+    border-radius:20px;
+    box-sizing:border-box;
+    padding:40px;
+
+    box-shadow:
+        0 5px 15px rgba(0,0,0,.1);
+}
+
+.page{
+    display:none;
+}
+
+.page.active{
+    display:block;
+}
+
+.option{
+    display:block;
+    margin:12px 0;
+    padding:12px;
+
+    border:1px solid #ddd;
+    border-radius:12px;
+
+    cursor:pointer;
+}
+
+input[type=text]{
+    width:100%;
+    padding:12px;
+
+    border-radius:10px;
+    border:1px solid #ddd;
+}
+
+button{
+    margin-top:20px;
+
+    padding:12px 24px;
+
+    border:none;
+    border-radius:12px;
+
+    background:#8fd3ff;
+    color:white;
+
+    cursor:pointer;
+}
+
+.result-box{
+    background:#fafafa;
+    padding:15px;
+    border-radius:12px;
+}
+
 .thinking-box{
     font: size 18px;
     color:#ff6b9d;
@@ -75,21 +159,54 @@ button{margin-top:20px;padding:10px 20px;border:none;border-radius:12px;backgrou
 <h2>🍽️ 食谱推荐</h2>
 
 <!-- ⭐ 思考动画区域（新增） -->
-    <div id="recipeThinking" style="display:none;">
-        <div class="thinking-box">
+    <div id="recipeLoading">
+        <video
+            id="thinkingVideo"
+            autoplay
+            loop
+            muted
+            playsinline
+            width="403">
+            <source 
+                src="/static/thinking.mp4" 
+                type="video/mp4">  
+        </video>
            <!-- <div class="cat-animation"></div-->
-            <div id="thinkingText">🐱 曦曦正在思考今日专属食谱...</div>
-        </div>
+            <p>
+                🐱 曦曦正在思考今日专属食谱...
+            </p>
     </div>
 
-<div id="recipeResult" class="result-box"></div>
-<button onclick="goNutrition()">下一步</button>
+<div 
+    id="recipeResult" 
+    class="result-box"
+    style="display:none;">
+</div>
+<button id="nextBtn"
+    onclick="goNutrition()"
+    style="display:none;">
+    下一步
+    </button>
 </div>
 
 <div id="page6" class="page">
 <h2>🥗 营养分析</h2>
-<div id="nutritionResult" class="result-box"></div>
+<div id="nutritionLoading">
+    <video
+        autoplay
+        loop
+        muted
+        playsinline
+        width="403">
+        <source 
+            src="/static/thinking.mp4" 
+            type="video/mp4">
+    </video>
+    <p>
+        🐱 曦曦正在分析营养成分...
+    </p>
 </div>
+<div id="nutritionResult" class="result-box" style="display:none;"></div>
 
 </div>
 
@@ -103,43 +220,139 @@ function nextPage(n){
 }
 
 async function generateRecipe(){
- const taste=document.querySelector('input[name="taste"]:checked')?.value||'';
- const avoid=document.getElementById('avoid').value||'无';
- const allergy=document.getElementById('allergy').value||'无';
- const goal=document.querySelector('input[name="goal"]:checked')?.value||'';
 
- const prompt=`偏好口味:${taste}；忌口:${avoid}；过敏原:${allergy}；健康目标:${goal}。请先生成食谱推荐，并单独给出营养分析。`;
+    const taste =
+        document.querySelector(
+            'input[name="taste"]:checked'
+        )?.value || '';
 
- document.getElementById('recipeResult').innerHTML='🐱 曦曦正在思考食谱...';
+    const avoid =
+        document.getElementById(
+            'avoid'
+        ).value || '无';
 
- try{
-   const response=await fetch('/api/chat',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({message:prompt})
-   });
+    const allergy =
+        document.getElementById(
+            'allergy'
+        ).value || '无';
 
-   const data=await response.json();
+    const goal =
+        document.querySelector(
+            'input[name="goal"]:checked'
+        )?.value || '';
 
-   const txt=data.response || '';
-   const parts=txt.split(/营养分析[:：]/);
+    const prompt =
+        `偏好口味:${taste}；忌口:${avoid}；过敏原:${allergy}；健康目标:${goal}。请先生成食谱推荐，并单独给出营养分析。`;
 
-   recipeText=parts[0] || txt;
-   nutritionText=parts.length>1 ? ('营养分析：'+parts[1]) : '未检测到独立营养分析内容，请根据后端返回格式调整切分规则。';
+    // 立即进入加载页
+    nextPage(5);
 
-   document.getElementById('recipeResult').innerHTML=marked.parse(recipeText);
-   document.getElementById('nutritionResult').innerHTML=marked.parse(nutritionText);
+    document.getElementById(
+        'recipeLoading'
+    ).style.display = 'block';
 
-   nextPage(5);
- }catch(e){
-   document.getElementById('recipeResult').innerHTML='生成失败';
-   nextPage(5);
- }
+    document.getElementById(
+        'recipeResult'
+    ).style.display = 'none';
+
+    document.getElementById(
+        'nextBtn'
+    ).style.display = 'none';
+
+    try{
+
+        const response =
+            await fetch(
+                '/api/chat',
+                {
+                    method:'POST',
+                    headers:{
+                        'Content-Type':'application/json'
+                    },
+                    body:JSON.stringify({
+                        message:prompt
+                    })
+                }
+            );
+
+        const data =
+            await response.json();
+
+        const txt =
+            data.response || '';
+
+        const parts =
+            txt.split(/营养分析[:：]/);
+
+        recipeText =
+            parts[0] || txt;
+
+        nutritionText =
+            parts.length > 1
+                ? ('营养分析：'+parts[1])
+                : '未检测到营养分析内容';
+
+        // 隐藏视频
+        document.getElementById(
+            'recipeLoading'
+        ).style.display = 'none';
+
+        // 显示结果
+        document.getElementById(
+            'recipeResult'
+        ).style.display = 'block';
+
+        document.getElementById(
+            'nextBtn'
+        ).style.display = 'inline-block';
+
+        document.getElementById(
+            'recipeResult'
+        ).innerHTML =
+            marked.parse(recipeText);
+
+        document.getElementById(
+            'nutritionResult'
+        ).innerHTML =
+            marked.parse(nutritionText);
+
+    }
+    catch(e){
+
+        document.getElementById(
+            'recipeLoading'
+        ).style.display = 'none';
+
+        document.getElementById(
+            'recipeResult'
+        ).style.display = 'block';
+
+        document.getElementById(
+            'recipeResult'
+        ).innerHTML =
+            '生成失败';
+    }
 }
 
 async function loadNutrition(){
 
     try{
+
+        const loading =
+            document.getElementById(
+                'nutritionLoading'
+            );
+
+        const result =
+            document.getElementById(
+                'nutritionResult'
+            );
+
+        // 显示动画
+        loading.style.display = 'block';
+
+        // 隐藏结果
+        result.style.display = 'none';
 
         const response = await fetch(
             '/api/nutrition',
@@ -150,14 +363,26 @@ async function loadNutrition(){
 
         const data = await response.json();
 
-        document.getElementById(
-            'nutritionResult'
-        ).innerHTML =
+        // 隐藏动画
+        loading.style.display = 'none';
+
+        // 显示结果
+        result.style.display = 'block';
+
+        result.innerHTML =
             marked.parse(
                 data.nutrition || '暂无数据'
             );
 
     }catch(e){
+
+        document.getElementById(
+            'nutritionLoading'
+        ).style.display = 'none';
+
+        document.getElementById(
+            'nutritionResult'
+        ).style.display = 'block';
 
         document.getElementById(
             'nutritionResult'
@@ -169,12 +394,6 @@ async function loadNutrition(){
 async function goNutrition(){
 
     nextPage(6);
-
-    document.getElementById(
-        'nutritionResult'
-    ).innerHTML =
-        '🐱 曦曦正在分析营养成分...';
-
     await loadNutrition();
 }
 </script>
